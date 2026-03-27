@@ -1,65 +1,193 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useState } from "react";
+
+import ImageCard from "./components/ImageCard";
+import Moves from "./components/Moves";
+import Locations from "./components/Locations";
+import Abilities from "./components/Abilities";
+import Evolution from "./components/Evolutions";
+import Favorites from "./components/Favorites";
+import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from "flowbite-react";
+
+
+
+export interface Pokemon {
+  id: number;
+  name: string;
+  abilities: { ability: { name: string } }[];
+  moves: { move: { name: string } }[];
+  types: { type: { name: string } }[];
+  sprites: {
+    other: {
+      "official-artwork": {
+        front_default: string;
+        front_shiny: string;
+      };
+    };
+  };
+  location_area_encounters: string;
+}
+
+export interface Location {
+  location_area: { name: string };
+}
 
 export default function Home() {
+  const [data, setData] = useState<Pokemon | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [evolutions, setEvolutions] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [input, setInput] = useState<string>("");
+  const [isShiny, setIsShiny] = useState<boolean>(false);
+  const [openModal, setOpenModal] = useState<boolean>(false);
+
+  const fetchPokemon = async (name: string | number) => {
+    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+    const data: Pokemon = await res.json();
+    if (data.id > 649)
+    {return setOpenModal(true);}
+    setData(data);
+
+    fetchLocations(data.location_area_encounters);
+    fetchEvolutions(data.id);
+  };
+
+  const fetchLocations = async (url: string) => {
+    const res = await fetch(url);
+    const data: Location[] = await res.json();
+    setLocations(data);
+  };
+
+  const fetchEvolutions = async (id: number) => {
+    const res = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`);
+    const species = await res.json();
+
+    const evolutionRes = await fetch(species.evolution_chain.url);
+    const evolutionData = await evolutionRes.json();
+
+    let names: string[] = [];
+    names.push(evolutionData.chain.species.name);
+
+    evolutionData.chain.evolves_to.forEach((evolution: any) => {
+      names.push(evolution.species.name);
+      evolution.evolves_to.forEach((evolved: any) => {
+        names.push(evolved.species.name);
+      });
+    });
+
+    setEvolutions(names);
+  };
+
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem("favorites") || "[]");
+    setFavorites(stored);
+  }, []);
+
+  const updateFavorites = (list: string[]) => {
+    localStorage.setItem("favorites", JSON.stringify(list));
+    setFavorites(list);
+  };
+
+  const toggleFavorite = () => {
+    if (!data) return;
+
+    let updated: string[];
+    if (favorites.includes(data.name)) {
+      updated = favorites.filter((favorite) => favorite !== data.name);
+    } else {
+      updated = [...favorites, data.name];
+    }
+    updateFavorites(updated);
+  };
+
+  const handleSearch = () => {
+    if (!input) return;
+    if (Number(input) > 649)
+    {setOpenModal(true)
+      return;
+    }
+    fetchPokemon(input.toLowerCase());
+    setInput("");
+  };
+
+  const randomPokemon = () => {
+    const rnd = Math.floor(Math.random() * 649) + 1;
+    fetchPokemon(rnd);
+  };
+
+  useEffect(() => {
+    fetchPokemon("pikachu");
+  }, []);
+
+  if (!data) return <div className="text-center mt-10">Loading...</div>;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen bg-[url(/assets/pokebg.jpg)] bg-size-[100px_100px] bg-repeat flex place-items-center flex-col">
+     <div className="max-w-[850px]">
+      <h1 className="text-center text-7xl mb-6 capitalize pokemonFont font-['Fugaz_One']">
+        Who's that Pokémon?
+      </h1>
+      
+      <div className="flex justify-center mb-6">
+        <input
+          className="border py-2 rounded-3xl bg-white shadow-lg shadow-gray-700 w-full"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <button
+          onClick={handleSearch}
+          className="bg-[#386ABB] text-[#FFCC03]! font-['Fugaz_One'] rounded-3xl px-4"
+        >
+          Enter
+        </button>
+        <button
+          onClick={randomPokemon}
+          className="bg-[#386ABB] text-[#FFCC03]! font-['Fugaz_One'] rounded-3xl px-4"
+        >
+          Random
+        </button>
+      </div>
+
+      <h2 className="text-center text-7xl mb-6 capitalize pokemonFont font-['Fugaz_One']">
+        It's {data.name}!
+      </h2>
+      </div>
+      <div className="grid lg:grid-cols-3 md:grid-cols-2 sm:1 grid-cols-1 lg:gap-5 md:gap-5 sm:gap-5 lg:mx-20 md:mx-10 sm:mx-5 lg:px-5 md:px-5 sm:px-5 gap-y-5 p-5 h-fit  place-content-center bg-[#386ABBaa] max-w-[850px] flex-col justify-center rounded-xl">
+        <div className="grid lg:col-span-1 md:col-span-1 sm:col-span-full lg:row-span-2 lg:order-1 md:order-1 sm:order-1">
+          <ImageCard
+            data={data}
+            isShiny={isShiny}
+            setIsShiny={setIsShiny}
+            toggleFavorite={toggleFavorite}
+            isFavorited={favorites.includes(data.name)}
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="grid col-span-2 row-span-1 lg:order-2 md-order-3 sm:order-3">
+          <Moves moves={data.moves} />
         </div>
-      </main>
+
+        <div className="grid col-span-2 row-span-1 lg:order-3 md-order-4 sm:order-4">
+          <Locations locations={locations} />
+        </div>
+        <div className="grid col-span-1 row-span-1 lg:order-4 md-order-2 sm:order-2">
+          <Abilities abilities={data.abilities} />
+        </div>
+        <div className="grid col-span-2 row-span-1 lg:order-4 md-order-5 sm:order-5 ">
+        <Evolution evolutions={evolutions} />
+        </div>
+        <div className="grid col-span-full row-span-1 w-full lg:order-6 md-order-6 sm:order-6">
+        <Favorites favorites={favorites} fetchPokemon={fetchPokemon} toggleFavorite={toggleFavorite} />
+        </div>
+      <Modal show={openModal} onClose={() => setOpenModal(false)}>
+        <ModalBody className="text-center bg-white! rounded-t-2xl">
+            <p>This application only supports pokemon with a pokedex number between 1 and 649.</p>
+        </ModalBody>
+        <ModalFooter className="flex place-content-center bg-white! rounded-b-2xl">
+          <Button className="w-full bg-[#386ABB]! text-[#FFCC03]! font-['Fugaz_One']" onClick={() => setOpenModal(false)}>Got it!</Button>
+        </ModalFooter>
+      </Modal>
+      </div>
     </div>
   );
 }
