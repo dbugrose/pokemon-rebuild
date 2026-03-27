@@ -130,7 +130,7 @@ export default function Home() {
       
       <div className="flex justify-center mb-6">
         <input
-          className="border py-2 rounded-3xl bg-white shadow-lg shadow-gray-700 w-full"
+          className="border py-2 rounded-3xl bg-white shadow-lg shadow-gray-700 w-full pl-5"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
